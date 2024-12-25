@@ -2,7 +2,7 @@ import os
 import ctypes
 import enum
 import typing
-import gameState
+from . import gameState
 
 
 class Game:
@@ -32,7 +32,7 @@ class Game:
 
         # Load the library
         self.__lib_path = os.path.join(
-            os.path.abspath(os.path.dirname(__file__)), "game.so"
+            os.path.abspath(os.path.dirname(__file__)), "libgame.so"
         )
         self.__lib_instance = ctypes.cdll.LoadLibrary(self.__lib_path)
 
