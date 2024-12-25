@@ -30,11 +30,19 @@ class Game:
     def __init__(self) -> None:
         self.state = gameState.GameState()
 
+        # The directory of this file
+        __parent_directory = os.path.join(os.path.abspath(os.path.dirname(__file__)))
+
+        # Change the directory to work with the config.json file
+        __lib_directory = os.path.join(__parent_directory, "bin")
+        os.chdir(__lib_directory)
+
         # Load the library
-        self.__lib_path = os.path.join(
-            os.path.abspath(os.path.dirname(__file__)), "libgame.so"
+        __lib_path = os.path.join(
+            __lib_directory,
+            "libgame.so",
         )
-        self.__lib_instance = ctypes.cdll.LoadLibrary(self.__lib_path)
+        self.__lib_instance = ctypes.cdll.LoadLibrary(__lib_path)
 
         # Load the C functions
         self.__reset = ctypes.CFUNCTYPE(ctypes.c_void_p)(
@@ -51,6 +59,9 @@ class Game:
         self.__observe = ctypes.CFUNCTYPE(ctypes.POINTER(ctypes.c_byte))(
             ("Obs", self.__lib_instance),
         )
+
+        # Set up the game
+        self.reset()
 
     def __update_state(self) -> None:
         self.state.update(
