@@ -1,4 +1,5 @@
 import os
+import sys
 import ctypes
 import enum
 import typing
@@ -38,11 +39,17 @@ class Game:
         os.chdir(lib_directory)
 
         # Load the library
-        lib_path = os.path.join(
-            lib_directory,
-            "libgame.so",
-        )
-        self.__lib_instance = ctypes.cdll.LoadLibrary(lib_path)
+        if sys.platform == "linux":
+            lib_path = os.path.join(
+                lib_directory,
+                "libgame.so",
+            )
+            self.__lib_instance = ctypes.cdll.LoadLibrary(lib_path)
+        elif sys.platform == "win32":
+            lib_path = os.path.join(lib_directory, "libgame.dll")
+            self.__lib_instance = ctypes.WinDLL(lib_path)
+        else:
+            raise RuntimeError("Your OS is not supported!")
 
         # Load the C functions
         self.__reset = ctypes.CFUNCTYPE(ctypes.c_void_p)(
