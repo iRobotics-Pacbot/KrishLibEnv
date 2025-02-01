@@ -3,17 +3,14 @@ from typing import Any, Tuple
 import gymnasium as gym
 from gymnasium import spaces
 import numpy as np
-import os
 import gameState
 from game import Game
 import typing
 import math
 import matplotlib.pyplot as plt
 
-import ctypes
 import pygame
-
-from walls import get
+import time
 
 pygame.init()
 
@@ -101,7 +98,7 @@ class Display:
 
 TIME_PER_TICK = 1.5
 
-class ServerPacman(gym.Env):
+class MotionProfilePacman(gym.Env):
 
     metadata = {"render_modes": ["human"], "render_fps": 60}
     def __init__(self, render_mode):
@@ -136,6 +133,8 @@ class ServerPacman(gym.Env):
         self.max_accel = 1 # 1 block per second per second, placeholder
 
         self.currTime = 0.0
+
+        self.vec_motion_profile = np.vectorize(self.motion_profile,excluded={'self','start','end'})
 
     def reset(self, *args, **kwargs) -> Tuple[Any, dict]:
         self.game.reset()
@@ -177,34 +176,7 @@ class ServerPacman(gym.Env):
     def step(self, action: Tuple) -> Tuple[Any | float | bool | dict]:
         """action should be a target location in format (row, col)"""
 
-
-        # Take an action and return the result
-        # if action < 5 and action >= 0:
-        #     server_message = ServerMessage(D_MESSAGES[action], 4).getBytes()
-        #     self.client.connection.send(server_message)
-        
-        # Wait for a response from the server
-        """
-        if action == ServerPacman.Actions.STEP.value:
-            self.update_func()
-        else:
-            message = None
-            if action == ServerPacman.Actions.UP.value:
-                message = b"w"
-            if action == ServerPacman.Actions.LEFT.value:
-                message = b"a"
-            if action == ServerPacman.Actions.RIGHT.value:
-                message = b"d"
-            if action == ServerPacman.Actions.DOWN.value:
-                message = b"s"
-
-            byte_data = (ctypes.c_byte * len(message))
-            byte_pointer = byte_data(*message)
-
-            self.step_func(byte_pointer, len(message))
-        """
-
-        pacloc = self.state.pacmanLoc
+        pacloc = self.game.state.pacmanLoc
 
         action_dir = self.action.NONE
         move_dist = 0
@@ -224,10 +196,8 @@ class ServerPacman(gym.Env):
                 action_dir = self.action.UP
                 move_dist = pacloc.row - action[0]
 
-        total_act_time = self.motion_profile(0,move_dist,move_dist)
-
-        pos_list = np.linspace(0,move_dist,move_dist+1)
-        t_list = self.motion_profile(0,move_dist,pos_list) #use broadcasting to vectorize and speed things up
+        pos_list = np.linspace(1,move_dist,move_dist)
+        t_list = self.vec_motion_profile(0,move_dist,pos_list) #use broadcasting to vectorize and speed things up
         t_list[1:] -= t_list[:-1] #get time difference between each time stamp
 
         for t in t_list:
@@ -235,12 +205,15 @@ class ServerPacman(gym.Env):
             new_tick = math.floor((self.currTime+t) / TIME_PER_TICK)
             for i in range(round(new_tick - last_tick)):
                 self.game.update()
-            self.game.step(action_dir)
+            self.game.step([action_dir])
             self.currTime += t
+            self.render()
+            time.sleep(0.5) #Only for debugging
+            
 
         observation = self._get_obs()
         reward = self._get_reward()
-        done = self.state.currLives <= 0
+        done = self.game.state.currLives <= 0
         return observation, reward, done,False , {}
 
     def _get_obs(self):
@@ -274,7 +247,7 @@ class ServerPacman(gym.Env):
         self.game.reset()
 
 if __name__ == "__main__":
-    pac = ServerPacman("human")
+    pac = MotionProfilePacman("human")
     time_list = []
     for i in range(16):
         time_list.append(pac.motion_profile(0,15,i))

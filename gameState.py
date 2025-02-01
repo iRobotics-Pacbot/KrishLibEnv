@@ -5,13 +5,13 @@ from enum import IntEnum
 from struct import unpack_from, pack
 
 # Internal representation of walls
-from .walls import wallArr
+from walls import wallArr
 
 # Buffer to collect messages to write to the server
 from collections import deque
 
 # Terminal colors for formatting output text
-from .terminalColors import *
+from terminalColors import *
 
 
 class GameModes(IntEnum):

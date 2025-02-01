@@ -3,7 +3,7 @@ import sys
 import ctypes
 import enum
 import typing
-from . import gameState
+import gameState
 
 
 class Game:
