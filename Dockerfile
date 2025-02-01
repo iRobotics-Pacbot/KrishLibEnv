@@ -1,4 +1,4 @@
-from python:latest
+FROM python:latest
 
 WORKDIR /pacbot
 
