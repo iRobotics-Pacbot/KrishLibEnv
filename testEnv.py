@@ -11,8 +11,9 @@ env = gym.make("MotionProfilePacman-v1", render_mode="human")
 
 env.reset()
 
-is_done = False
-while not is_done:
+action_list = []
+test_actions = [(25,2),(25,0)]
+for action in test_actions:
     new_space, reward, is_done, state, info = env.step(action)
     env.render()
 env.close()

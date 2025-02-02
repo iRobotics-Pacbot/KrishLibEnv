@@ -9,6 +9,8 @@ import typing
 import math
 import matplotlib.pyplot as plt
 
+import walls
+
 import pygame
 import time
 
@@ -203,14 +205,36 @@ class MotionProfilePacman(gym.Env):
 
         return init_t + const_vel_t + remaining_t
 
-    def step(self, action: Tuple) -> Tuple[Any | float | bool | dict]:
-        """action should be a target location in format (row, col)"""
+    def max_dist_in_dir(self,dist:int,dir:int):
+        if(dir == self.action.NONE):
+            return 0
+        pacloc = self.game.state.pacmanLoc
+        for i in range(dist):
+            match(dir):
+                case self.action.UP:
+                    if(walls.get(pacloc.row-i,pacloc.col)):
+                        return i-1
+                case self.action.DOWN:
+                    if(walls.get(pacloc.row+i,pacloc.col)):
+                        return i-1
+                case self.action.LEFT:
+                    if(walls.get(pacloc.row,pacloc.col-i)):
+                        return i-1
+                case self.action.RIGHT:
+                    if(walls.get(pacloc.row,pacloc.col+i)):
+                        return i-1
 
+    def step(self, action: Tuple) -> Tuple[Any | float | bool | dict]:
+        """
+        old version:action should be a target location in format (row, col)
+        new versoin:action shoudl be (dist,dir) 
+        """
         pacloc = self.game.state.pacmanLoc
 
-        action_dir = self.action.NONE
-        move_dist = 0
+        action_dir = [e for e in self.action][action[1]]
+        move_dist = self.max_dist_in_dir(action[0],action_dir)
 
+        """
         if action[0] == pacloc.row:
             if action[1] > pacloc.col:
                 action_dir = self.action.RIGHT
@@ -225,6 +249,7 @@ class MotionProfilePacman(gym.Env):
             else:
                 action_dir = self.action.UP
                 move_dist = pacloc.row - action[0]
+        """
 
         pos_list = np.linspace(1, move_dist, move_dist)
         t_list = self.vec_motion_profile(

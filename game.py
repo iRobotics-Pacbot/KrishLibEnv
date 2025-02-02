@@ -27,7 +27,7 @@ class Game:
         LEFT = b"a"
         RIGHT = b"d"
         DOWN = b"s"
-        NONE = None
+        NONE = b"0"
 
     def __init__(self) -> None:
         self.state = gameState.GameState()
