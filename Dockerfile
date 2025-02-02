@@ -1,14 +1,13 @@
-FROM python:latest
+FROM pytorch/pytorch:2.6.0-cuda12.6-cudnn9-devel
 
 WORKDIR /pacbot
 
 COPY . .
 
-# Install dependencies for stable-baselines 3
-RUN apt-get update && apt-get -y install cmake libopenmpi-dev python3-dev zlib1g-dev
-
 # Install packages
+RUN apt update
+RUN apt install -y python3-pip
 RUN pip install -r requirements.txt
 
-CMD ["python3", "main.py"]
+CMD ["python3", "train.py"]
 

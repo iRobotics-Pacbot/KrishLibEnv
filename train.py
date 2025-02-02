@@ -1,6 +1,6 @@
 from gymnasium.envs.registration import register
 import gymnasium as gym
-from stable_baselines3 import DQN
+from stable_baselines3 import PPO
 
 register(
     id="MotionProfilePacman-v1",
@@ -10,13 +10,13 @@ register(
 
 env = gym.make("MotionProfilePacman-v1", render_mode="human")
 
-model = DQN("MultiInputPolicy", env, verbose=1)
-model.learn(total_timesteps=10000, log_interval=4)
-model.save("dqn_pacbot")
+model = PPO("MultiInputPolicy", env, verbose=1, tensorboard_log="tensorboard")
+model.learn(total_timesteps=int(1e4), log_interval=4)
+model.save("ppo_pacbot")
 
 del model  # remove to demonstrate saving and loading
 
-model = DQN.load("dqn_pacbot")
+model = PPO.load("ppo_pacbot")
 
 obs, info = env.reset()
 while True:
