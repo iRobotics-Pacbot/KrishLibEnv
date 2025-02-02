@@ -138,7 +138,7 @@ class MotionProfilePacman(gym.Env):
             }
         )
 
-        self.action_space = spaces.Discrete(5)
+        self.action_space = spaces.Box(low=np.array([0, 0]), high=np.array([25, 4]), dtype=np.uint8) #(dist,direction), direction is same as ENUM
 
         # Motion constants
         self.max_vel = 3  # 3 blocks per second, placeholder
