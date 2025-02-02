@@ -1,14 +1,13 @@
 from gymnasium.envs.registration import register
 import gymnasium as gym
-from stable_baselines3.
 
 register(
-    id='MotionProfilePacman-v1',
-    entry_point='env:MotionProfilePacman',
+    id="MotionProfilePacman-v1",
+    entry_point="env:MotionProfilePacman",
     max_episode_steps=300,
 )
 
-env = gym.make('MotionProfilePacman-v1', render_mode="human")
+env = gym.make("MotionProfilePacman-v1", render_mode="human")
 
 env.reset()
 
