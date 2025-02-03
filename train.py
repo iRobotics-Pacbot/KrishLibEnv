@@ -1,6 +1,7 @@
 from gymnasium.envs.registration import register
 import gymnasium as gym
 from stable_baselines3 import PPO
+from stable_baselines3.common.env_util import make_vec_env
 
 register(
     id="MotionProfilePacman-v1",
@@ -8,7 +9,7 @@ register(
     max_episode_steps=300,
 )
 
-env = gym.make("MotionProfilePacman-v1", render_mode="human")
+env = make_vec_env("MotionProfilePacman-v1", n_envs=4, env_kwargs={"render_mode":"human"})
 
 model = PPO("MultiInputPolicy", env, verbose=1, tensorboard_log="tensorboard")
 model.learn(total_timesteps=int(1e4), log_interval=4)

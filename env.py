@@ -127,11 +127,11 @@ class MotionProfilePacman(gym.Env):
 
         self.observation_space = spaces.Dict(
             {
-                "pacbot_position": spaces.Box(0, 30, shape=(2,), dtype=int),
-                "pink_ghost_position": spaces.Box(0, 30, shape=(2,), dtype=int),
-                "blue_ghost_position": spaces.Box(0, 30, shape=(2,), dtype=int),
-                "orange_ghost_position": spaces.Box(0, 30, shape=(2,), dtype=int),
-                "red_ghost_position": spaces.Box(0, 30, shape=(2,), dtype=int),
+                "pacbot_position": spaces.MultiDiscrete([32,29]),
+                "pink_ghost_position": spaces.MultiDiscrete([32,29]),
+                "blue_ghost_position": spaces.MultiDiscrete([32,29]),
+                "orange_ghost_position": spaces.MultiDiscrete([32,29]),
+                "red_ghost_position": spaces.MultiDiscrete([32,29]),
                 "pink_ghost_frightened_step": spaces.Discrete(41),
                 "blue_ghost_frightened_step": spaces.Discrete(41),
                 "orange_ghost_frightened_step": spaces.Discrete(41),
@@ -140,7 +140,7 @@ class MotionProfilePacman(gym.Env):
             }
         )
 
-        self.action_space = spaces.Box(low=np.array([0, 0]), high=np.array([25, 4]), dtype=np.uint8) #(dist,direction), direction is same as ENUM
+        self.action_space = spaces.MultiDiscrete([26,5]) #(dist,direction), direction is same as ENUM
 
         # Motion constants
         self.max_vel = 3  # 3 blocks per second, placeholder
@@ -154,7 +154,9 @@ class MotionProfilePacman(gym.Env):
 
     def reset(self, *args, **kwargs) -> Tuple[Any, dict]:
         self.game.reset()
-        return self._get_obs(), {}
+        self.game.update()
+        obs = self._get_obs()
+        return (obs, {})
 
     def motion_profile(self, start: int, end: int, pos: int) -> float:
         """Receives the start position, end position, and the desired position. Outputs the real time when the bot arrives at that position"""
@@ -165,6 +167,9 @@ class MotionProfilePacman(gym.Env):
 
         length = end - start
 
+        if length < 0:
+            raise ValueError("Incorrect starting and end points")
+
         if length <= self.max_vel**2 / self.max_accel:
             v_cap = math.sqrt(length * self.max_accel)
             # triangular profile because the distance is too short
@@ -172,10 +177,15 @@ class MotionProfilePacman(gym.Env):
                 return math.sqrt((2 * pos) / self.max_accel)
             half_t = math.sqrt(length / self.max_accel)
             # pos = (end+start)/2 + vt - 1/2at^2, -1/2at^2 + vt + ((end+start)/2 - pos) = 0, 1/2at^2 - vt + (pos - (end+start)/2) = 0
+            temp = v_cap**2 - 4 * (0.5) * self.max_accel * (pos - (end + start) / 2)
+            if temp < -1e-5:
+                raise ValueError("Negative squareroot value")
+            else:
+                temp = abs(round(temp,8))
             remaining_t = (
                 v_cap
                 - math.sqrt(
-                    v_cap**2 - 4 * (0.5) * self.max_accel * (pos - (end + start) / 2)
+                    temp
                 )
                 / self.max_accel
             )
@@ -229,27 +239,17 @@ class MotionProfilePacman(gym.Env):
         old version:action should be a target location in format (row, col)
         new versoin:action shoudl be (dist,dir) 
         """
-        pacloc = self.game.state.pacmanLoc
 
         action_dir = [e for e in self.action][action[1]]
         move_dist = self.max_dist_in_dir(action[0],action_dir)
 
-        """
-        if action[0] == pacloc.row:
-            if action[1] > pacloc.col:
-                action_dir = self.action.RIGHT
-                move_dist = action[1] - pacloc.col
-            else:
-                action_dir = self.action.LEFT
-                move_dist = pacloc.col - action[1]
-        else:
-            if action[0] > pacloc.row:
-                action_dir = self.action.DOWN
-                move_dist = action[0] - pacloc.row
-            else:
-                action_dir = self.action.UP
-                move_dist = pacloc.row - action[0]
-        """
+        if move_dist == None or move_dist <= 0:
+            observation = self._get_obs()
+            reward = self._get_reward()
+            done = self.game.state.currLives <= 0
+            return observation, reward, done, False, {}
+
+        print(move_dist)
 
         pos_list = np.linspace(1, move_dist, move_dist)
         t_list = self.vec_motion_profile(
@@ -294,7 +294,7 @@ class MotionProfilePacman(gym.Env):
             "pink_ghost_frightened_step": ghosts[1].frightSteps,
             "blue_ghost_frightened_step": ghosts[2].frightSteps,
             "orange_ghost_frightened_step": ghosts[3].frightSteps,
-            "cherry_on": state.fruitSteps > 0,
+            "cherry_on": int(state.fruitSteps > 0),
         }
 
     def _get_reward(self):
@@ -308,7 +308,7 @@ class MotionProfilePacman(gym.Env):
 
     def close(self):
         # Close the environment and clean up resources
-        self.game.reset()
+        self.reset()
 
 
 if __name__ == "__main__":
