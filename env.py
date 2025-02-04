@@ -273,7 +273,10 @@ class MotionProfilePacman(gym.Env):
         observation = self._get_obs()
         reward = self._get_reward()
         done = self.game.state.currLives <= 0
-        return observation, reward, done, False, {}
+        info = {}
+        if done:
+            info["terminal_observation"] = observation
+        return observation, reward, done, False, info
 
     def _get_obs(self):
         # self.state.update(ctypes.cast(self.obs_func(), ctypes.POINTER(ctypes.c_byte * 159)).contents)
