@@ -12,7 +12,7 @@ register(
 
 if __name__=="__main__":
 
-    env = make_vec_env("MotionProfilePacman-v1", n_envs=8, env_kwargs={"render_mode":"human"},vec_env_cls=SubprocVecEnv)
+    env = make_vec_env("MotionProfilePacman-v1", n_envs=8, env_kwargs={"render_mode":None},vec_env_cls=SubprocVecEnv)
 
     model = PPO("MultiInputPolicy", env, device="cpu", verbose=1, tensorboard_log="tensorboard") #default policy is "MlpPolicy"
     model.learn(total_timesteps=int(1e4), log_interval=4)

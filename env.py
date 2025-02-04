@@ -119,6 +119,8 @@ class MotionProfilePacman(gym.Env):
         if render_mode == "human":
             self.display = Display()
 
+        self.render_mode = render_mode
+
         self.game = Game()
 
         self.action = self.game.Action
@@ -264,7 +266,8 @@ class MotionProfilePacman(gym.Env):
                 self.game.update()
             self.game.step([action_dir])
             self.currTime += t
-            self.render()
+            if self.render_mode == "human":
+                self.render()
             time.sleep(0.5)  # Only for debugging
 
         observation = self._get_obs()
