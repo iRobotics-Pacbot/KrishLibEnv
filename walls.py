@@ -33,4 +33,5 @@ wallArr: list[int] = [
 ]
 
 def get(row, col):
-    return bool(wallArr[row] & 1<<(27-col))
+	#print(row,col)
+	return bool(wallArr[row] & 1<<(27-col))

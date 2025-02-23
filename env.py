@@ -129,11 +129,11 @@ class MotionProfilePacman(gym.Env):
 
         self.observation_space = spaces.Dict(
             {
-                "pacbot_position": spaces.MultiDiscrete([32,29]),
-                "pink_ghost_position": spaces.MultiDiscrete([32,29]),
-                "blue_ghost_position": spaces.MultiDiscrete([32,29]),
-                "orange_ghost_position": spaces.MultiDiscrete([32,29]),
-                "red_ghost_position": spaces.MultiDiscrete([32,29]),
+                "pacbot_position": spaces.MultiDiscrete([33,33]),
+                "pink_ghost_position": spaces.MultiDiscrete([33,33]),
+                "blue_ghost_position": spaces.MultiDiscrete([33,33]),
+                "orange_ghost_position": spaces.MultiDiscrete([33,33]),
+                "red_ghost_position": spaces.MultiDiscrete([33,33]),
                 "pink_ghost_frightened_step": spaces.Discrete(41),
                 "blue_ghost_frightened_step": spaces.Discrete(41),
                 "orange_ghost_frightened_step": spaces.Discrete(41),
@@ -221,6 +221,8 @@ class MotionProfilePacman(gym.Env):
         if(dir == self.action.NONE):
             return 0
         pacloc = self.game.state.pacmanLoc
+        if pacloc.row == 32: 
+            return 0 #not checking for columns because when it shifts out of bounds automatically equals to 0
         for i in range(dist):
             match(dir):
                 case self.action.UP:
@@ -230,11 +232,12 @@ class MotionProfilePacman(gym.Env):
                     if(walls.get(pacloc.row+i,pacloc.col)):
                         return i-1
                 case self.action.LEFT:
-                    if(walls.get(pacloc.row,pacloc.col-i)):
+                    if(walls.get(pacloc.row,pacloc.col-i)): 
                         return i-1
                 case self.action.RIGHT:
                     if(walls.get(pacloc.row,pacloc.col+i)):
                         return i-1
+        return 0
 
     def step(self, action: Tuple) -> Tuple[Any | float | bool | dict]:
         """
@@ -268,7 +271,7 @@ class MotionProfilePacman(gym.Env):
             self.currTime += t
             if self.render_mode == "human":
                 self.render()
-            time.sleep(0.5)  # Only for debugging
+            #time.sleep(0.5)  # Only for debugging
 
         observation = self._get_obs()
         reward = self._get_reward()
@@ -276,6 +279,7 @@ class MotionProfilePacman(gym.Env):
         info = {}
         if done:
             info["terminal_observation"] = observation
+        #print(observation)
         return observation, reward, done, False, info
 
     def _get_obs(self):
