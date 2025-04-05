@@ -6,6 +6,7 @@ from stable_baselines3.common.vec_env import SubprocVecEnv, DummyVecEnv
 import numpy as np
 import random
 from game import Game
+from PIL import Image
 
 register(
     id="MotionProfilePacman-v1",
@@ -22,6 +23,9 @@ if __name__=="__main__":
     for i in range(1000):
         action = random.choice(range(5))
         obs, reward, terminated, something, info = env.step(action)
+        if i == 500:
+            img = Image.fromarray(obs)
+            img.save("last_frame.png")
         if terminated:
             print(terminated)
             obs = env.reset()

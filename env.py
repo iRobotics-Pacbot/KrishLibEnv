@@ -12,13 +12,12 @@ import matplotlib.pyplot as plt
 import walls
 
 import pygame
-import time
 
 pygame.init()
 
 
 class Display:
-    SCALE = 20
+    SCALE = 4
     ROWS = 31
     COLS = 28
 
@@ -65,9 +64,9 @@ class Display:
                 if state.wallAt(*pos):
                     config = (0, 0, 150), 1, Display.Shape.SQUARE
                 if state.pelletAt(*pos):
-                    config = (100, 100, 100), 0.25, Display.Shape.CIRCLE
+                    config = (100, 100, 100), 0.5, Display.Shape.CIRCLE
                 if state.superPelletAt(*pos):
-                    config = (255, 255, 255), 0.5, Display.Shape.CIRCLE
+                    config = (255, 255, 255), 0.75, Display.Shape.CIRCLE
                 if state.fruitAt(*pos):
                     config = (255, 0, 0), 0.5, Display.Shape.CIRCLE
 
@@ -119,6 +118,7 @@ class MotionProfilePacman(gym.Env):
     def __init__(self, render_mode):
         if render_mode == "human":
             self.display = Display()
+        self.screen = pygame.display.set_mode((Display.SCALE * Display.COLS, Display.SCALE * Display.ROWS))
 
         self.render_mode = render_mode
 
@@ -128,19 +128,25 @@ class MotionProfilePacman(gym.Env):
 
         self.last_score = 0
 
-        self.observation_space = spaces.Dict(
-            {
-                "pacbot_position": spaces.MultiDiscrete([33,33]),
-                "pink_ghost_position": spaces.MultiDiscrete([33,33]),
-                "blue_ghost_position": spaces.MultiDiscrete([33,33]),
-                "orange_ghost_position": spaces.MultiDiscrete([33,33]),
-                "red_ghost_position": spaces.MultiDiscrete([33,33]),
-                "pink_ghost_frightened_step": spaces.Discrete(41),
-                "blue_ghost_frightened_step": spaces.Discrete(41),
-                "orange_ghost_frightened_step": spaces.Discrete(41),
-                "red_ghost_frightened_step": spaces.Discrete(41),
-                "cherry_on": spaces.Discrete(2),
-            }
+        # self.observation_space = spaces.Dict(
+        #     {
+        #         "pacbot_position": spaces.MultiDiscrete([33,33]),
+        #         "pink_ghost_position": spaces.MultiDiscrete([33,33]),
+        #         "blue_ghost_position": spaces.MultiDiscrete([33,33]),
+        #         "orange_ghost_position": spaces.MultiDiscrete([33,33]),
+        #         "red_ghost_position": spaces.MultiDiscrete([33,33]),
+        #         "pink_ghost_frightened_step": spaces.Discrete(41),
+        #         "blue_ghost_frightened_step": spaces.Discrete(41),
+        #         "orange_ghost_frightened_step": spaces.Discrete(41),
+        #         "red_ghost_frightened_step": spaces.Discrete(41),
+        #         "cherry_on": spaces.Discrete(2),
+        #     }
+        # )
+        self.observation_space = spaces.Box(
+            low=0,
+            high=255,
+            shape=(Display.SCALE * Display.ROWS,Display.SCALE * Display.COLS, 3),
+            dtype=np.uint8
         )
 
         self.action_space = spaces.MultiDiscrete([26,5]) #(dist,direction), direction is same as ENUM
@@ -279,7 +285,7 @@ class MotionProfilePacman(gym.Env):
         if self.render_mode == "human":
                 self.render()
 
-        observation = self._get_obs()
+        observation = self._get_frame()
         reward = self._get_reward()
         done = self.game.state.currLives <= 0
         info = {}
@@ -292,26 +298,27 @@ class MotionProfilePacman(gym.Env):
         # self.state.update(ctypes.cast(self.obs_func(), ctypes.POINTER(ctypes.c_byte * 159)).contents)
         state = self.game.state
         ghosts = state.ghosts
-        return {
-            "pacbot_position": np.array([state.pacmanLoc.row, state.pacmanLoc.col]),
-            "red_ghost_position": np.array(
-                [ghosts[0].location.row, ghosts[0].location.col]
-            ),
-            "pink_ghost_position": np.array(
-                [ghosts[1].location.row, ghosts[1].location.col]
-            ),
-            "blue_ghost_position": np.array(
-                [ghosts[2].location.row, ghosts[2].location.col]
-            ),
-            "orange_ghost_position": np.array(
-                [ghosts[3].location.row, ghosts[3].location.col]
-            ),
-            "red_ghost_frightened_step": ghosts[0].frightSteps,
-            "pink_ghost_frightened_step": ghosts[1].frightSteps,
-            "blue_ghost_frightened_step": ghosts[2].frightSteps,
-            "orange_ghost_frightened_step": ghosts[3].frightSteps,
-            "cherry_on": int(state.fruitSteps > 0),
-        }
+        # return {
+        #     "pacbot_position": np.array([state.pacmanLoc.row, state.pacmanLoc.col]),
+        #     "red_ghost_position": np.array(
+        #         [ghosts[0].location.row, ghosts[0].location.col]
+        #     ),
+        #     "pink_ghost_position": np.array(
+        #         [ghosts[1].location.row, ghosts[1].location.col]
+        #     ),
+        #     "blue_ghost_position": np.array(
+        #         [ghosts[2].location.row, ghosts[2].location.col]
+        #     ),
+        #     "orange_ghost_position": np.array(
+        #         [ghosts[3].location.row, ghosts[3].location.col]
+        #     ),
+        #     "red_ghost_frightened_step": ghosts[0].frightSteps,
+        #     "pink_ghost_frightened_step": ghosts[1].frightSteps,
+        #     "blue_ghost_frightened_step": ghosts[2].frightSteps,
+        #     "orange_ghost_frightened_step": ghosts[3].frightSteps,
+        #     "cherry_on": int(state.fruitSteps > 0),
+        # }
+        return pygame
 
     def _get_reward(self):
         new_score = self.game.state.currScore
@@ -321,6 +328,12 @@ class MotionProfilePacman(gym.Env):
 
     def render(self):
         self.display.render(self.game.state)
+
+    def _get_frame(self):
+        # Get the pixel array from the screen
+        return np.transpose(
+            pygame.surfarray.array3d(self.screen), (1, 0, 2)
+        )
 
     def close(self):
         # Close the environment and clean up resources
