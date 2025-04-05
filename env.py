@@ -110,6 +110,7 @@ class Display:
 
 
 TIME_PER_TICK = 1.5
+MOVEMENT_TICK = 6
 
 
 class MotionProfilePacman(gym.Env):
@@ -150,9 +151,9 @@ class MotionProfilePacman(gym.Env):
 
         self.currTime = 0.0
 
-        self.vec_motion_profile = np.vectorize(
-            self.motion_profile, excluded={"self", "start", "end"}
-        )
+        # self.vec_motion_profile = np.vectorize(
+        #     self.motion_profile, excluded={"self", "start", "end"}
+        # )
 
     def reset(self, *args, **kwargs) -> Tuple[Any, dict]:
         self.game.reset()
@@ -239,39 +240,44 @@ class MotionProfilePacman(gym.Env):
                         return i-1
         return 0
 
-    def step(self, action: Tuple) -> Tuple[Any | float | bool | dict]:
+    def step(self, action: int) -> Tuple[Any | float | bool | dict]:
         """
         old version:action should be a target location in format (row, col)
         new versoin:action shoudl be (dist,dir) 
         """
 
-        action_dir = [e for e in self.action][action[1]]
-        move_dist = self.max_dist_in_dir(action[0],action_dir)
+        action_dir = [e for e in self.action][action]
+        #move_dist = self.max_dist_in_dir(action[0],action_dir)
 
-        if move_dist == None or move_dist <= 0:
-            observation = self._get_obs()
-            reward = self._get_reward()
-            done = self.game.state.currLives <= 0
-            return observation, reward, done, False, {}
+        # if move_dist == None or move_dist <= 0:
+        #     observation = self._get_obs()
+        #     reward = self._get_reward()
+        #     done = self.game.state.currLives <= 0
+        #     return observation, reward, done, False, {}
 
-        print(move_dist)
+        # print(move_dist)
 
-        pos_list = np.linspace(1, move_dist, move_dist)
-        t_list = self.vec_motion_profile(
-            0, move_dist, pos_list
-        )  # use broadcasting to vectorize and speed things up
-        t_list[1:] -= t_list[:-1]  # get time difference between each time stamp
+        # pos_list = np.linspace(1, move_dist, move_dist)
+        # t_list = self.vec_motion_profile(
+        #     0, move_dist, pos_list
+        # )  # use broadcasting to vectorize and speed things up
+        # t_list[1:] -= t_list[:-1]  # get time difference between each time stamp
 
-        for t in t_list:
-            last_tick = math.floor(self.currTime / TIME_PER_TICK)
-            new_tick = math.floor((self.currTime + t) / TIME_PER_TICK)
-            for i in range(round(new_tick - last_tick)):
-                self.game.update()
-            self.game.step([action_dir])
-            self.currTime += t
-            if self.render_mode == "human":
+        # for t in t_list:
+        #     last_tick = math.floor(self.currTime / TIME_PER_TICK)
+        #     new_tick = math.floor((self.currTime + t) / TIME_PER_TICK)
+        #     for i in range(round(new_tick - last_tick)):
+        #         self.game.update()
+        #     self.game.step([action_dir])
+        #     self.currTime += t
+        #     if self.render_mode == "human":
+        #         self.render()
+        #     #time.sleep(0.5)  # Only for debugging
+        for i in range(MOVEMENT_TICK):
+            self.game.update()
+        self.game.step([action_dir])
+        if self.render_mode == "human":
                 self.render()
-            #time.sleep(0.5)  # Only for debugging
 
         observation = self._get_obs()
         reward = self._get_reward()
