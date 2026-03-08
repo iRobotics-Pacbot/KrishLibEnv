@@ -17,7 +17,7 @@ pygame.init()
 
 
 class Display:
-    SCALE = 4
+    SCALE = 20
     ROWS = 31
     COLS = 28
 
@@ -25,14 +25,16 @@ class Display:
         CIRCLE = 0
         SQUARE = 1
 
-    def __init__(self):
+    def __init__(self, surface=None):
         size = (Display.SCALE * Display.COLS, Display.SCALE * Display.ROWS)
-        self.window = pygame.display.set_mode(size)
-        self.canvas = pygame.surface.Surface(size)
+        if surface is None:
+            self.window = pygame.display.set_mode(size)
+        else:
+            self.window = surface
 
     def drawItem(
         self,
-        canvas: pygame.Surface,
+        window: pygame.Surface,
         color: typing.Tuple[float],
         position: typing.Tuple[int],
         shape: Shape,
@@ -44,18 +46,18 @@ class Display:
         centerX, centerY = x + Display.SCALE / 2, y + Display.SCALE / 2
         if shape == Display.Shape.CIRCLE:
             pygame.draw.circle(
-                canvas, color, (centerX, centerY), Display.SCALE / 2 * scale
+                window, color, (centerX, centerY), Display.SCALE / 2 * scale
             )
         if shape == Display.Shape.SQUARE:
             pygame.draw.rect(
-                canvas,
+                window,
                 color,
                 pygame.rect.Rect(
                     centerX - width / 2, centerY - height / 2, width, height
                 ),
             )
 
-    def drawItems(self, canvas: pygame.surface.Surface, state: gameState.GameState):
+    def drawItems(self, window: pygame.surface.Surface, state: gameState.GameState):
         for row in range(Display.ROWS):
             for col in range(Display.COLS):
                 pos = (row, col)
@@ -74,9 +76,9 @@ class Display:
                     continue
 
                 color, scale, shape = config
-                self.drawItem(canvas, color, pos, shape, scale)
+                self.drawItem(window, color, pos, shape, scale)
 
-    def drawEntities(self, canvas: pygame.surface.Surface, state: gameState.GameState):
+    def drawEntities(self, window: pygame.surface.Surface, state: gameState.GameState):
         ghostColors = ((255, 0, 0), (255, 100, 100), (100, 100, 255), (255, 100, 0))
 
         freightened = (0, 0, 255)
@@ -88,23 +90,22 @@ class Display:
                 color = freightened
             else:
                 color = ghostColors[ghost.color]
-            self.drawItem(canvas, color, pos, Display.Shape.CIRCLE, 1)
+            self.drawItem(window, color, pos, Display.Shape.CIRCLE, 1)
 
         pos = state.pacmanLoc.row, state.pacmanLoc.col
         color = (255, 255, 0)
-        self.drawItem(canvas, color, pos, Display.Shape.CIRCLE, 1)
+        self.drawItem(window, color, pos, Display.Shape.CIRCLE, 1)
 
     def render(self, state):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
 
-        self.canvas.fill((0, 0, 0))
+        self.window.fill((0, 0, 0))
 
-        self.drawItems(self.canvas, state)
-        self.drawEntities(self.canvas, state)
+        self.drawItems(self.window, state)
+        self.drawEntities(self.window, state)
 
-        self.window.blit(self.canvas, (0, 0))
         pygame.display.update()
 
 
@@ -116,9 +117,9 @@ class MotionProfilePacman(gym.Env):
     metadata = {"render_modes": ["human"], "render_fps": 60}
 
     def __init__(self, render_mode):
-        if render_mode == "human":
-            self.display = Display()
         self.screen = pygame.display.set_mode((Display.SCALE * Display.COLS, Display.SCALE * Display.ROWS))
+        if render_mode == "human":
+            self.display = Display(self.screen)
 
         self.render_mode = render_mode
 
@@ -145,7 +146,7 @@ class MotionProfilePacman(gym.Env):
         self.observation_space = spaces.Box(
             low=0,
             high=255,
-            shape=(Display.SCALE * Display.ROWS,Display.SCALE * Display.COLS, 3),
+            shape=(Display.SCALE * Display.COLS, Display.SCALE * Display.ROWS, 3),
             dtype=np.uint8
         )
 
@@ -246,13 +247,13 @@ class MotionProfilePacman(gym.Env):
                         return i-1
         return 0
 
-    def step(self, action: int) -> Tuple[Any | float | bool | dict]:
+    def step(self, action: Tuple[int, int]) -> Tuple[Any, float, bool, bool, dict]:
         """
         old version:action should be a target location in format (row, col)
         new versoin:action shoudl be (dist,dir) 
         """
-
-        action_dir = [e for e in self.action][action]
+        dist, direction_idx = action
+        action_dir = [e for e in self.action][direction_idx]
         #move_dist = self.max_dist_in_dir(action[0],action_dir)
 
         # if move_dist == None or move_dist <= 0:
@@ -318,7 +319,7 @@ class MotionProfilePacman(gym.Env):
         #     "orange_ghost_frightened_step": ghosts[3].frightSteps,
         #     "cherry_on": int(state.fruitSteps > 0),
         # }
-        return pygame
+        return self._get_frame()
 
     def _get_reward(self):
         new_score = self.game.state.currScore
@@ -331,9 +332,7 @@ class MotionProfilePacman(gym.Env):
 
     def _get_frame(self):
         # Get the pixel array from the screen
-        return np.transpose(
-            pygame.surfarray.array3d(self.screen), (1, 0, 2)
-        )
+        return pygame.surfarray.array3d(self.screen)
 
     def close(self):
         # Close the environment and clean up resources
