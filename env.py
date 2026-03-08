@@ -346,4 +346,3 @@ if __name__ == "__main__":
         time_list.append(pac.motion_profile(0, 15, i))
     plt.scatter(time_list, [i for i in range(16)])
     plt.show()
-
