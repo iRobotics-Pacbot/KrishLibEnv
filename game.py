@@ -49,6 +49,9 @@ class Game:
         elif sys.platform == "win32":
             lib_path = os.path.join(lib_directory, "libgame.dll")
             self.__lib_instance = ctypes.WinDLL(lib_path)
+        elif sys.platform == "darwin":
+            lib_path = os.path.join(lib_directory, "libgame.dylib")
+            self.__lib_instance = ctypes.CDLL(lib_path)
         else:
             raise RuntimeError("Your OS is not supported!")
 

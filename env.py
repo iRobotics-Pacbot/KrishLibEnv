@@ -291,7 +291,9 @@ class MotionProfilePacman(gym.Env):
         state = self.game.state
         ghosts = state.ghosts
         return {
-            "pacbot_position": np.array([state.pacmanLoc.row, state.pacmanLoc.col], dtype=np.int64),
+            "pacbot_position": np.array(
+                [state.pacmanLoc.row, state.pacmanLoc.col], dtype=np.int64
+            ),
             "red_ghost_position": np.array(
                 [ghosts[0].location.row, ghosts[0].location.col], dtype=np.int64
             ),
@@ -330,9 +332,4 @@ class MotionProfilePacman(gym.Env):
 
 
 if __name__ == "__main__":
-    pac = MotionProfilePacman("human")
-    time_list = []
-    for i in range(16):
-        time_list.append(pac.motion_profile(0, 15, i))
-    plt.scatter(time_list, [i for i in range(16)])
-    plt.show()
+    pass
