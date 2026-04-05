@@ -145,9 +145,10 @@ class MotionProfilePacman(gym.Env):
             }
         )
 
-        self.action_space = spaces.MultiDiscrete(
-            [26, 5]
-        )  # (dist,direction), direction is same as ENUM
+        # self.action_space = spaces.MultiDiscrete(
+        #     [26, 5]
+        # )  # (dist,direction), direction is same as ENUM
+        self.action_space = spaces.Discrete(130)
 
         # Motion constants
         self.max_vel = 3  # 3 blocks per second, placeholder
@@ -159,10 +160,13 @@ class MotionProfilePacman(gym.Env):
         #     self.motion_profile, excluded={"self", "start", "end"}
         # )
 
+        self.last_lives = 3
+
     def reset(self, *args, **kwargs) -> Tuple[Any, dict]:
         self.game.reset()
         self.game.update()
         obs = self._get_obs()
+        self.visited_positions = set()
         return (obs, {})
 
     def motion_profile(self, start: int, end: int, pos: int) -> float:
@@ -243,7 +247,9 @@ class MotionProfilePacman(gym.Env):
         old version:action should be a target location in format (row, col)
         new versoin:action shoudl be (dist,dir)
         """
-        dist, direction_idx = action
+        # dist, direction_idx = action
+        direction_idx = int(action % 5)
+        dist = int(action // 5)
         action_dir = [e for e in self.action][direction_idx]
         # move_dist = self.max_dist_in_dir(action[0],action_dir)
 
@@ -315,8 +321,20 @@ class MotionProfilePacman(gym.Env):
 
     def _get_reward(self):
         new_score = self.game.state.currScore
-        reward = new_score - self.last_score
+        reward = float(new_score - self.last_score)
         self.last_score = new_score
+        current_lives = self.game.state.currLives
+        if current_lives < self.last_lives: # If lives decreased
+            reward -= 50
+        self.last_lives = current_lives
+        pos = (self.game.state.pacmanLoc.row, self.game.state.pacmanLoc.col)
+        if pos not in self.visited_positions:
+            reward += 0.1
+            self.visited_positions.add(pos)
+        actual_score_gain = float(new_score - self.last_score)
+        if actual_score_gain > 0:
+            reward += actual_score_gain * 2
+        reward -= 0.01
         return reward
 
     def render(self):
