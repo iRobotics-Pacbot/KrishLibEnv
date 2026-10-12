@@ -2,3 +2,6 @@ __pycache__
 .venv
 /bin/tensorboard
 /tensorboard
+/bin/best_model
+/bin/eval_logs
+*.zip

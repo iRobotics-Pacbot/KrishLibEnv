@@ -112,16 +112,17 @@ class Display:
 
 TIME_PER_TICK = 1.5
 MOVEMENT_TICK = 10
+TARGET_SCORE = 8000
 
 
 class MotionProfilePacman(gym.Env):
     metadata = {"render_modes": ["human"], "render_fps": 60}
 
     def __init__(self, render_mode):
-        self.screen = pygame.display.set_mode(
-            (Display.SCALE * Display.COLS, Display.SCALE * Display.ROWS)
-        )
         if render_mode == "human":
+            self.screen = pygame.display.set_mode(
+                (Display.SCALE * Display.COLS, Display.SCALE * Display.ROWS)
+            )
             self.display = Display(self.screen)
 
         self.render_mode = render_mode
@@ -178,6 +179,24 @@ class MotionProfilePacman(gym.Env):
         self.visited_positions = set()
         self.last_lives = 3
         self.last_score = 0
+
+        self.episode_steps = 0
+        self.episode_reward = 0.0
+
+        self.episode_successful = False
+
+        self.episode_reward_metrics = {
+            "wall_hits": 0,
+            "lives_lost": 0,
+            "reward_score": 0.0,
+            "reward_large_score_bonus": 0.0,
+            "reward_score_event_bonus": 0.0,
+            "reward_step": 0.0,
+            "reward_life_loss": 0.0,
+            "reward_wall_hit": 0.0,
+            "reward_ghost_proximity": 0.0,
+            "reward_pellet_proximity": 0.0,
+        }
 
         nearest_pellet_pos = self.find_nearest_pellet(self.game.state.pacmanLoc)
         self.last_dist_to_pellet = abs(nearest_pellet_pos[0] - self.game.state.pacmanLoc.row) + \
@@ -260,12 +279,14 @@ class MotionProfilePacman(gym.Env):
     def step(self, action: Tuple[int, int]) -> Tuple[Any, float, bool, bool, dict]:
         """
         old version:action should be a target location in format (row, col)
-        new versoin:action shoudl be (dist,dir)
+        new version:action shoudl be (dist,dir)
         """
         action_dir = [e for e in self.action][int(action)]
         
         state = self.game.state
         r, c = state.pacmanLoc.row, state.pacmanLoc.col
+
+        lives_before = state.currLives
         hit_wall = False
 
         if action_dir == self.action.UP and state.wallAt(r - 1, c):
@@ -279,20 +300,42 @@ class MotionProfilePacman(gym.Env):
 
         if hit_wall:
             action_dir = self.action.NONE
+            self.episode_reward_metrics["wall_hits"] += 1
         
         for i in range(MOVEMENT_TICK):
             self.game.update()
+        
         self.game.step([action_dir])
+
         if self.render_mode == "human":
             self.render()
 
         observation = self._get_obs()
         reward = self._get_reward(hit_wall)
-        done = self.game.state.currLives <= 0
+
+        self.episode_steps += 1
+        self.episode_reward += reward
+
+        if state.currScore >= TARGET_SCORE:
+            self.episode_successful = True
+
+        lives_after = state.currLives
+        self.episode_reward_metrics["lives_lost"] += max(0, lives_before-lives_after)
+
+        done = state.currLives <= 0
         info = {}
+
         if done:
             info["terminal_observation"] = observation
-            info["final_score"] = self.game.state.currScore
+            info["final_score"] = state.currScore
+            info["episode_stats"] = {
+                "score": state.currScore,
+                "steps": self.episode_steps,
+                "total_reward": self.episode_reward,
+                **self.episode_reward_metrics,
+                "successful": self.episode_successful,
+            }
+
         # print(observation)
         return observation, reward, done, False, info
 
@@ -409,30 +452,51 @@ class MotionProfilePacman(gym.Env):
 
         actual_score_gain = float(new_score - self.last_score)
         reward = actual_score_gain
+        self.episode_reward_metrics["reward_score"] += actual_score_gain
         self.last_score = new_score
+
         current_lives = self.game.state.currLives
         if current_lives < self.last_lives: # If lives decreased
             reward -= 200
+            self.episode_reward_metrics["reward_life_loss"] -= 200
         self.last_lives = current_lives
-        
+
+        # score gain multiplier
         if actual_score_gain >= 200:
             # reward += (actual_score_gain)
-            reward += actual_score_gain * 2.0
+            bonus = actual_score_gain * 2.0
+            reward += bonus
+            self.episode_reward_metrics["reward_large_score_bonus"] += bonus
+
+        # event bonus
         if actual_score_gain > 0:
             reward += 30
+            self.episode_reward_metrics["reward_score_event_bonus"] += 30
+
+        # step penalty    
         reward -= 0.1
+        self.episode_reward_metrics["reward_step"] -= 0.1
+
+        # penalty if wall is hit
         if hit_wall:
             reward -= 5.0
+            self.episode_reward_metrics["reward_wall_hit"] -= 5.0
+
+        # ghost proximity rewards and penalties via Manhattan distance
         for ghost in self.game.state.ghosts:
             dist = abs(state.pacmanLoc.row - ghost.location.row) + abs(state.pacmanLoc.col - ghost.location.col)
             if not ghost.isFrightened():
                 if dist < 2:
                     reward -= 10.0
+                    self.episode_reward_metrics["reward_ghost_proximity"] -= 10.0
             else:
                 if dist < 5:
                     # reward += 10.0
-                    reward += (1.0 / (dist + 1)) * 15.0
+                    bonus = (1.0 / (dist + 1)) * 15.0
+                    reward += bonus
+                    self.episode_reward_metrics["reward_ghost_proximity"] += bonus
                     # reward += (1.0 / (dist_to_frightened_ghost + 1)) * 15.0
+
         nearest_pellet_pos = self.find_nearest_pellet(state.pacmanLoc)
         dist_to_pellet = abs(nearest_pellet_pos[0] - state.pacmanLoc.row) + \
                          abs(nearest_pellet_pos[1] - state.pacmanLoc.col)
@@ -441,8 +505,10 @@ class MotionProfilePacman(gym.Env):
         # reward += (1.0 / (dist_to_pellet + 1)) * 2.0
         if dist_to_pellet < self.last_dist_to_pellet:
             reward += 0.5
+            self.episode_reward_metrics["reward_pellet_proximity"] += 0.5
         elif dist_to_pellet > self.last_dist_to_pellet:
             reward -= 0.5
+            self.episode_reward_metrics["reward_pellet_proximity"] -= 0.5
             
         self.last_dist_to_pellet = dist_to_pellet
 
