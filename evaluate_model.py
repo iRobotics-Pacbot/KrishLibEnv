@@ -24,7 +24,7 @@ if __name__ == "__main__":
     env = VecFrameStack(env, n_stack=4)
 
     # model = PPO.load("ppo_pacbot", env=env, device="mps")
-    model = DQN.load("dqn_pacbot", env=env, device="mps")
+    model = DQN.load("best_model/best_model", env=env, device="mps")
 
     num_episodes = 10
 
@@ -94,6 +94,11 @@ if __name__ == "__main__":
     print("\n" + "="*40)
     print("\n=== EVALUATION RESULTS ===")
     print(f"Mean score: {np.mean(scores):.2f}")
+    print(f"Median score: {np.median(scores):.2f}")
+    print(f"Std score: {np.std(scores):.2f}")
+    print(f"Min score: {np.min(scores):.2f}")
+    print(f"Max score: {np.max(scores):.2f}")
+
     print(f"Success rate: {successes / num_episodes:.1%}")
     print(f"Mean total reward: {np.mean(total_rewards):.2f}")
     print(f"Mean wall hits: {np.mean(wall_hits):.2f}")
