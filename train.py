@@ -71,75 +71,93 @@ register(
 #     vec_env_cls=DummyVecEnv,
 # )
 
-# creates 8 instances of training envs wrapped in a single vectorized env
-# each env stores experience as (obs, action, reward, next obs, done)
-env = make_vec_env(
-    "MotionProfilePacman-v1",
-    n_envs=8,
-    env_kwargs={"render_mode": None},
-    vec_env_cls=DummyVecEnv,
-)
-env = VecFrameStack(env, n_stack=4) # saves 4 consecutive frames of the env
+if __name__ == "__main__":
+    # ===================================
+    # training environment
+    # ===================================
+    # creates 8 instances of training envs wrapped in a single vectorized env
+    # each env stores experience as (obs, action, reward, next obs, done)
+    env = make_vec_env(
+        "MotionProfilePacman-v1",
+        n_envs=8,
+        env_kwargs={"render_mode": None},
+        vec_env_cls=DummyVecEnv,
+    )
+    env = VecFrameStack(env, n_stack=4) # saves 4 consecutive frames of the env
 
-# environment to periodically evaluate state of model
-eval_env = make_vec_env(
-    "MotionProfilePacman-v1",
-    n_envs=1,
-    env_kwargs={"render_mode":None},
-    vec_env_cls=DummyVecEnv,
-)
-eval_env = VecFrameStack(eval_env, n_stack=4)
-eval_callback = EvalCallback(
-    eval_env=eval_env,
-    best_model_save_path="./best_model/",
-    log_path="./eval_logs/",
-    eval_freq=10_000,
-    n_eval_episodes=5,
-    deterministic=True,
-    render=False,
-    verbose=1,
-)
+    # ===================================
+    # evaluation environment
+    # ===================================
+    # environment to periodically evaluate state of model
+    eval_env = make_vec_env(
+        "MotionProfilePacman-v1",
+        n_envs=1,
+        env_kwargs={"render_mode":None},
+        vec_env_cls=DummyVecEnv,
+    )
+    eval_env = VecFrameStack(eval_env, n_stack=4)
 
-policy_kwargs = dict(net_arch=[256, 256]) # 2 hidden layers of 256 features
+    # ===================================
+    # evaluation callback
+    # ===================================
+    eval_callback = EvalCallback(
+        eval_env=eval_env,
+        best_model_save_path="./best_model/",
+        log_path="./eval_logs/",
+        eval_freq=12_500,
+        n_eval_episodes=5,
+        deterministic=True,
+        render=False,
+        verbose=1,
+    )
 
-model = DQN(
-    "MultiInputPolicy", 
-    env,
-    policy_kwargs=policy_kwargs, 
-    exploration_fraction=0.4, # fraction of decrease from initial to final epsilon
-    exploration_final_eps=0.05, # final probability for random action
-    verbose=1, 
-    learning_rate=3e-4, # scale of updates to neural network weights
-    buffer_size=500000, # stores past transitions about an episode experience
-    tensorboard_log="tensorboard",
-    train_freq=4, # steps until training event
-    gradient_steps=1, # updates per train event
-    device="mps",
-    batch_size=256, # number of transitions used per gradient step from buffer
-    gamma=0.995, # used to encourage longer-term outcomes
-)
+    # ===================================
+    # DQN model
+    # ===================================
+    model = DQN(
+        "MultiInputPolicy", 
+        env=env,
 
-print("\n" + "="*40)
-print("=== PHASE 1: STARTING TRAINING ===")
-print("Goal: 3,000,000 timesteps")
-print("The Pygame window will remain blank to maximize speed.")
-print("="*40 + "\n")
+        learning_rate=3e-4, # scale of updates to neural network weights
+        buffer_size=500_000, # stores past transitions about an episode experience
+        batch_size=256, # number of transitions used per gradient step from buffer
+        gamma=0.995, # used to encourage longer-term outcomes
 
-start_time = time.time()
+        train_freq=4, # steps until training event
+        gradient_steps=1, # updates per train event
 
-model.learn(
-    total_timesteps=int(1_000_000),
-    callback=eval_callback,
-    tb_log_name="dqn_pacbot",
-)
-model.save("dqn_pacbot")
+        exploration_fraction=0.4, # fraction of decrease from initial to final epsilon
+        exploration_final_eps=0.05, # final probability for random action
 
-end_time = time.time()
-elapsed_minutes = (end_time - start_time) / 60
+        tensorboard_log="./tensorboard/",
+        policy_kwargs=dict(net_arch=[256, 256]), # 2 hidden layers of 256 features 
+        verbose=1, 
+        device="mps",
+    )
 
-print("\n" + "="*40)
-print(f"=== TRAINING COMPLETE ===")
-print(f"Time elapsed: {elapsed_minutes:.2f} minutes")
-print("="*40 + "\n")
+    print("\n" + "="*40)
+    print("=== PHASE 1: STARTING TRAINING ===")
+    print("Goal: 3,000,000 timesteps")
+    print("The Pygame window will remain blank to maximize speed.")
+    print("="*40 + "\n")
 
-env.close()
+    start_time = time.time()
+
+    model.learn(
+        total_timesteps=int(1_000_000),
+        callback=eval_callback,
+        tb_log_name="dqn_pacbot",
+    )
+
+    model.save("dqn_pacbot")
+
+    end_time = time.time()
+    elapsed_minutes = (end_time - start_time) / 60
+
+    print("\n" + "="*40)
+    print(f"=== TRAINING COMPLETE ===")
+    print(f"Time elapsed: {elapsed_minutes:.2f} minutes")
+    print("="*40 + "\n")
+
+    env.close()
+    eval_env.close()
