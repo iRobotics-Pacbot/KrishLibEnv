@@ -104,9 +104,9 @@ class Display:
 
         self.drawItems(self.window, state)
         self.drawEntities(self.window, state)
-        font = pygame.font.SysFont("Arial", 24)
-        score_surface = font.render(f"Score: {state.currScore}", True, (255, 255, 255))
-        self.window.blit(score_surface, (10, 10))
+        # font = pygame.font.SysFont("Arial", 24)
+        # score_surface = font.render(f"Score: {state.currScore}", True, (255, 255, 255))
+        # self.window.blit(score_surface, (10, 10))
         pygame.display.update()
 
 

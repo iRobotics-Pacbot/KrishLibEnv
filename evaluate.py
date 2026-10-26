@@ -186,6 +186,7 @@ def main(render):
         env.close()
 
 if __name__ == "__main__":
+    # if render is passed in shell args than the game will render
     render = None
     if len(sys.argv) > 1 and sys.argv[1] == "render":
         render = "human"
