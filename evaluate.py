@@ -11,7 +11,7 @@ import sys
 
 ENV_ID = "MotionProfilePacman-v1"
 MODEL_NAME = "dqn_pacbot"
-NUM_EPISODES = 10
+NUM_EPISODES = 100
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 OUTPUT_DIR = os.path.join(SCRIPT_DIR, "bin/results")
 DEVICE = "mps"
@@ -63,26 +63,29 @@ def evaluate_model(model, env):
     obs = env.reset()
 
     while len(episode_results) < NUM_EPISODES:
-        action, _states = model.predict(obs, deterministic=True)
+        action, _states = model.predict(obs, deterministic=False)
         obs, reward, done, info = env.step(action)
 
         current_actions.append(int(action[0]))
 
         if done[0]:
             episode_number = len(episode_results) + 1
-            stats = collect_episode_metrics(info[0], episode_results)
+            raw_metrics = collect_episode_metrics(info[0], episode_number)
 
-            episode_results.append(stats)
+            # force deepcopy
+            metrics = dict(raw_metrics)
+
+            episode_results.append(metrics)
             action_sequences.append(current_actions.copy())
 
             print(
                 f"Episode {episode_number}/{NUM_EPISODES}: "
-                f"score={stats['score']}, "
-                f"steps={stats['steps']}, "
-                f"success={stats['success']}, "
-                f"wall_hits={stats['wall_hits']}, "
-                f"lives_lost={stats['lives_lost']}, "
-                f"reward={stats['total_reward']:.2f}"
+                f"score={metrics['score']}, "
+                f"steps={metrics['steps']}, "
+                f"success={metrics['success']}, "
+                f"wall_hits={metrics['wall_hits']}, "
+                f"lives_lost={metrics['lives_lost']}, "
+                f"reward={metrics['total_reward']:.2f}"
             )
 
             current_actions = []
@@ -108,6 +111,7 @@ def summarize_results(episode_results):
         "mean_lives_lost": np.mean([row["lives_lost"] for row in episode_results]),
     }
 
+    # average of the all reward components
     for comp in REWARD_COMPONENTS:
         summary[f"mean_{comp}"] =  np.mean([row[comp] for row in episode_results])
 
@@ -116,8 +120,18 @@ def summarize_results(episode_results):
 # save to CSV
 def save_csv(path, rows):
     print(os.getcwd())
-    with open(path, "w", newline="") as file:
-        writer = csv.DictWriter(file, fieldnames=rows[0].keys())
+    if not rows:
+        print("No rows to write")
+        return
+
+    all_fieldnames = []
+    for row in rows:
+        for key in row.keys():
+            if key not in all_fieldnames:
+                all_fieldnames.append(key)
+    
+    with open(path, "w", newline="", encoding="utf-8") as file:
+        writer = csv.DictWriter(file, fieldnames=all_fieldnames, restval="")
         writer.writeheader()
         writer.writerows(rows)
 
