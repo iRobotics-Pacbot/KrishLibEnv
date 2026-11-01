@@ -71,7 +71,7 @@ if __name__ == "__main__":
 
     env = make_vec_env("MotionProfilePacman-v1", n_envs=8, vec_env_cls=DummyVecEnv)
     env = VecFrameStack(env, n_stack=4)
-    policy_kwargs = dict(net_arch=[256, 256])
+    policy_kwargs = dict(net_arch=[512, 512])
     model = DQN(
         "MultiInputPolicy", 
         env,
@@ -82,7 +82,7 @@ if __name__ == "__main__":
         learning_rate=3e-4,
         buffer_size=500000, 
         # exploration_fraction=0.1,
-        tensorboard_log="tensorboard",
+        # tensorboard_log="tensorboard",
         train_freq=4,
         gradient_steps=1,
         device="mps",
@@ -98,7 +98,7 @@ if __name__ == "__main__":
     start_time = time.time()
 
     model.learn(total_timesteps=int(3000000))
-    model.save("ppo_pacbot")
+    model.save("dqn_pacbot")
 
     end_time = time.time()
     elapsed_minutes = (end_time - start_time) / 60
@@ -108,35 +108,35 @@ if __name__ == "__main__":
     print(f"Time elapsed: {elapsed_minutes:.2f} minutes")
     print("="*40 + "\n")
 
-    print("=== PHASE 2: STARTING TESTING ===")
-    env = make_vec_env(
-        "MotionProfilePacman-v1",
-        n_envs=1,
-        env_kwargs={"render_mode": "human"},
-        vec_env_cls=DummyVecEnv,
-    )
-    env = VecFrameStack(env, n_stack=4)
+    # print("=== PHASE 2: STARTING TESTING ===")
+    # env = make_vec_env(
+    #     "MotionProfilePacman-v1",
+    #     n_envs=1,
+    #     env_kwargs={"render_mode": "human"},
+    #     vec_env_cls=DummyVecEnv,
+    # )
+    # env = VecFrameStack(env, n_stack=4)
     
 
-    obs = env.reset()
-    # action = np.array([0])
-    # obs, reward, terminated, truncated, info = env.step(action)
+    # obs = env.reset()
+    # # action = np.array([0])
+    # # obs, reward, terminated, truncated, info = env.step(action)
 
-    while True:
-        action, _states = model.predict(obs, deterministic=True)
-        obs, reward, done, info = env.step(action)
-        current_score = env.envs[0].unwrapped.game.state.currScore
-        print(f"Current Score: {current_score}", end="\r")
-        if done[0]:
-            # print("Episode finished!")
-            # print(f"\nGame Over! Final Score: {current_score}")
-            final_score = info[0].get("final_score", 0)
-            print(f"Game Over! Final Score: {final_score}\n")
-        else:
-            current_score = env.envs[0].unwrapped.game.state.currScore
-            print(f"Current Score: {current_score}", end="\r")
-            # obs = env.reset()
-        # if terminated or truncated:
-        #     print(terminated)
-        #     obs = env.reset()
+    # while True:
+    #     action, _states = model.predict(obs, deterministic=True)
+    #     obs, reward, done, info = env.step(action)
+    #     current_score = env.envs[0].unwrapped.game.state.currScore
+    #     print(f"Current Score: {current_score}", end="\r")
+    #     if done[0]:
+    #         # print("Episode finished!")
+    #         # print(f"\nGame Over! Final Score: {current_score}")
+    #         final_score = info[0].get("final_score", 0)
+    #         print(f"Game Over! Final Score: {final_score}\n")
+    #     else:
+    #         current_score = env.envs[0].unwrapped.game.state.currScore
+    #         print(f"Current Score: {current_score}", end="\r")
+    #         # obs = env.reset()
+    #     # if terminated or truncated:
+    #     #     print(terminated)
+    #     #     obs = env.reset()
 

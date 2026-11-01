@@ -112,7 +112,7 @@ class Display:
 
 TIME_PER_TICK = 1.5
 MOVEMENT_TICK = 10
-
+TARGET_SCORE = 8000
 
 class MotionProfilePacman(gym.Env):
     metadata = {"render_modes": ["human"], "render_fps": 60}
@@ -149,7 +149,7 @@ class MotionProfilePacman(gym.Env):
                 "nearest_power_pellet": spaces.Box(low=-1, high=1, shape=(2,), dtype=np.float32),
                 "game_mode": spaces.Box(low=0, high=2, shape=(1,), dtype=np.float32),
                 "local_walls": spaces.Box(low=0, high=1, shape=(4,), dtype=np.float32),
-                # "board": spaces.Box(low=-1, high=5, shape=(31, 28), dtype=np.float32),
+                "board": spaces.Box(low=-1, high=5, shape=(1, 31, 28), dtype=np.float32),
             }
         )
 
@@ -179,9 +179,31 @@ class MotionProfilePacman(gym.Env):
         self.last_lives = 3
         self.last_score = 0
 
+        self.episode_steps = 0
+        self.episode_reward = 0.0
+
+        self.episode_successful = False
+
+        self.episode_reward_metrics = {
+            "wall_hits": 0,
+            "lives_lost": 0,
+            "reward_score": 0.0,
+            "reward_large_score_bonus": 0.0,
+            "reward_score_event_bonus": 0.0,
+            "reward_step": 0.0,
+            "reward_life_loss": 0.0,
+            "reward_wall_hit": 0.0,
+            "reward_ghost_proximity": 0.0,
+            "reward_pellet_proximity": 0.0,
+        }
+
         nearest_pellet_pos = self.find_nearest_pellet(self.game.state.pacmanLoc)
         self.last_dist_to_pellet = abs(nearest_pellet_pos[0] - self.game.state.pacmanLoc.row) + \
                                    abs(nearest_pellet_pos[1] - self.game.state.pacmanLoc.col)
+        
+        nearest_power_pellet_pos = self.find_nearest_power_pellet(self.game.state.pacmanLoc)
+        self.last_dist_to_power_pellet = abs(nearest_power_pellet_pos[0] - self.game.state.pacmanLoc.row) + \
+                                   abs(nearest_power_pellet_pos[1] - self.game.state.pacmanLoc.col)
         return (obs, {})
 
     def motion_profile(self, start: int, end: int, pos: int) -> float:
@@ -266,6 +288,8 @@ class MotionProfilePacman(gym.Env):
         
         state = self.game.state
         r, c = state.pacmanLoc.row, state.pacmanLoc.col
+
+        lives_before = state.currLives
         hit_wall = False
 
         if action_dir == self.action.UP and state.wallAt(r - 1, c):
@@ -279,6 +303,7 @@ class MotionProfilePacman(gym.Env):
 
         if hit_wall:
             action_dir = self.action.NONE
+            self.episode_reward_metrics["wall_hits"] += 1
         
         for i in range(MOVEMENT_TICK):
             self.game.update()
@@ -288,11 +313,28 @@ class MotionProfilePacman(gym.Env):
 
         observation = self._get_obs()
         reward = self._get_reward(hit_wall)
+
+        self.episode_steps += 1
+        self.episode_reward += reward
+
+        if state.currScore >= TARGET_SCORE:
+            self.episode_successful = True
+
+        lives_after = state.currLives
+        self.episode_reward_metrics["lives_lost"] += max(0, lives_before-lives_after)
+
         done = self.game.state.currLives <= 0
         info = {}
         if done:
             info["terminal_observation"] = observation
             info["final_score"] = self.game.state.currScore
+            info["episode_stats"] = {
+                "score": state.currScore,
+                "steps": self.episode_steps,
+                "total_reward": self.episode_reward,
+                **self.episode_reward_metrics,
+                "successful": self.episode_successful,
+            }
         # print(observation)
         return observation, reward, done, False, info
 
@@ -354,27 +396,27 @@ class MotionProfilePacman(gym.Env):
         power_rel_row = (nearest_power_pellet_pos[0] - state.pacmanLoc.row) / 31.0
         power_rel_col = (nearest_power_pellet_pos[1] - state.pacmanLoc.col) / 28.0
         
-        # board = np.zeros((31, 28), dtype=np.float32)
+        board = np.zeros((31, 28), dtype=np.float32)
         
-        # for r in range(31):
-        #     row_data = state.pelletArr[r]
-        #     for c in range(28):
-        #         if state.wallAt(r, c):
-        #             board[r, c] = -1.0
-        #         elif state.superPelletAt(r, c):
-        #             board[r, c] = 2.0 
-        #         elif (row_data >> c) & 1:
-        #             board[r, c] = 1.0
-        # if state.pacmanLoc.row < 31 and state.pacmanLoc.col < 28:
-        #     board[state.pacmanLoc.row, state.pacmanLoc.col] = 5.0
+        for r in range(31):
+            row_data = state.pelletArr[r]
+            for c in range(28):
+                if state.wallAt(r, c):
+                    board[r, c] = -1.0
+                elif state.superPelletAt(r, c):
+                    board[r, c] = 2.0 
+                elif (row_data >> c) & 1:
+                    board[r, c] = 1.0
+        if state.pacmanLoc.row < 31 and state.pacmanLoc.col < 28:
+            board[state.pacmanLoc.row, state.pacmanLoc.col] = 5.0
 
-        # for ghost in ghosts:
-        #     gr, gc = ghost.location.row, ghost.location.col
-        #     if gr < 31 and gc < 28:
-        #         if ghost.isFrightened():
-        #             board[gr, gc] = 3.0
-        #         else:
-        #             board[gr, gc] = -5.0
+        for ghost in ghosts:
+            gr, gc = ghost.location.row, ghost.location.col
+            if gr < 31 and gc < 28:
+                if ghost.isFrightened():
+                    board[gr, gc] = 3.0
+                else:
+                    board[gr, gc] = -5.0
 
         r = state.pacmanLoc.row
         c = state.pacmanLoc.col
@@ -383,6 +425,7 @@ class MotionProfilePacman(gym.Env):
         wall_left = float(state.wallAt(r, c - 1) or (r == 14 and c == 0))
         wall_right = float(state.wallAt(r, c + 1) or (r == 14 and c == 27))
 
+        board_3d = np.expand_dims(board, axis=0)
 
         return {
             "pacbot_position": np.array([state.pacmanLoc.row / 31.0, state.pacmanLoc.col / 28.0], dtype=np.float32),
@@ -400,7 +443,7 @@ class MotionProfilePacman(gym.Env):
             "nearest_power_pellet": np.array([power_rel_row, power_rel_col], dtype=np.float32),
             "game_mode": np.array([float(state.gameMode)], dtype=np.float32),
             "local_walls": np.array([wall_up, wall_down, wall_left, wall_right], dtype=np.float32),
-            # "board": board,
+            "board": board_3d,
         }
 
     def _get_reward(self, hit_wall=False):
@@ -409,30 +452,43 @@ class MotionProfilePacman(gym.Env):
 
         actual_score_gain = float(new_score - self.last_score)
         reward = actual_score_gain
+        self.episode_reward_metrics["reward_score"] += actual_score_gain
         self.last_score = new_score
         current_lives = self.game.state.currLives
+
         if current_lives < self.last_lives: # If lives decreased
             reward -= 200
+            self.episode_reward_metrics["reward_life_loss"] -= 200
         self.last_lives = current_lives
         
         if actual_score_gain >= 200:
             # reward += (actual_score_gain)
+            bonus = actual_score_gain * 2.0
             reward += actual_score_gain * 2.0
+            self.episode_reward_metrics["reward_large_score_bonus"] += bonus
         if actual_score_gain > 0:
             reward += 30
+            self.episode_reward_metrics["reward_score_event_bonus"] += 30
+        
         reward -= 0.1
+        self.episode_reward_metrics["reward_step"] -= 0.1
+
         if hit_wall:
             reward -= 5.0
+            self.episode_reward_metrics["reward_wall_hit"] -= 5.0
+
         for ghost in self.game.state.ghosts:
             dist = abs(state.pacmanLoc.row - ghost.location.row) + abs(state.pacmanLoc.col - ghost.location.col)
             if not ghost.isFrightened():
                 if dist < 2:
                     reward -= 10.0
-            else:
-                if dist < 5:
-                    # reward += 10.0
-                    reward += (1.0 / (dist + 1)) * 15.0
+                    self.episode_reward_metrics["reward_ghost_proximity"] -= 10.0
+            # else:
+            #     if dist < 5:
+            #         # reward += 10.0
+            #         reward += (1.0 / (dist + 1)) * 15.0
                     # reward += (1.0 / (dist_to_frightened_ghost + 1)) * 15.0
+                    # self.episode_reward_metrics["reward_ghost_proximity"] += bonus
         nearest_pellet_pos = self.find_nearest_pellet(state.pacmanLoc)
         dist_to_pellet = abs(nearest_pellet_pos[0] - state.pacmanLoc.row) + \
                          abs(nearest_pellet_pos[1] - state.pacmanLoc.col)
@@ -441,10 +497,25 @@ class MotionProfilePacman(gym.Env):
         # reward += (1.0 / (dist_to_pellet + 1)) * 2.0
         if dist_to_pellet < self.last_dist_to_pellet:
             reward += 0.5
+            self.episode_reward_metrics["reward_pellet_proximity"] += 0.5
         elif dist_to_pellet > self.last_dist_to_pellet:
             reward -= 0.5
+            self.episode_reward_metrics["reward_pellet_proximity"] -= 0.5
             
         self.last_dist_to_pellet = dist_to_pellet
+
+        nearest_power_pellet_pos = self.find_nearest_power_pellet(state.pacmanLoc)
+        dist_to_power_pellet = abs(nearest_power_pellet_pos[0] - state.pacmanLoc.row) + \
+                         abs(nearest_power_pellet_pos[1] - state.pacmanLoc.col)
+        
+        # Give a small reward for being close to food
+        # reward += (1.0 / (dist_to_pellet + 1)) * 2.0
+        if dist_to_power_pellet < self.last_dist_to_power_pellet:
+            reward += 1.0
+        elif dist_to_power_pellet > self.last_dist_to_power_pellet:
+            reward -= 1.0
+            
+        self.last_dist_to_power_pellet = dist_to_pellet
 
         return reward
 

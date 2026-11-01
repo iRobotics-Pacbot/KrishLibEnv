@@ -1,0 +1,2 @@
+model,num_episodes,mean_score,median_score,std_score,min_score,max_score,success_rate,mean_total_reward,mean_wall_hits,mean_lives_lost,mean_reward_score,mean_reward_large_score_bonus,mean_reward_score_event_bonus,mean_reward_step,mean_reward_life_loss,mean_reward_wall_hit,mean_reward_ghost_proximity,mean_reward_pellet_proximity
+dqn_pacbot,100,656.4,725.0,269.2861674873033,140,1070,0.0,1595.8860000000082,15.58,3.0,656.4,4.0,1903.5,-12.923999999999987,-600.0,-77.9,-156.6,-0.19
