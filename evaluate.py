@@ -1,13 +1,14 @@
-from gymnasium.envs.registration import register
+import os
+import sys
+import csv
+import numpy as np
+
 import gymnasium as gym
-# from stable_baselines3 import PPO
+from gymnasium.envs.registration import register
+
 from stable_baselines3 import DQN
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.vec_env import VecFrameStack, DummyVecEnv
-import numpy as np
-import csv
-import os
-import sys
 
 ENV_ID = "MotionProfilePacman-v1"
 MODEL_NAME = "dqn_pacbot"
@@ -15,14 +16,6 @@ NUM_EPISODES = 100
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 OUTPUT_DIR = os.path.join(SCRIPT_DIR, "bin/results")
 DEVICE = "mps"
-
-# registers custom environment MotionProfilePacman from env.py 
-register (
-    id=ENV_ID,
-    entry_point="env:MotionProfilePacman",
-    max_episode_steps=10_000, # time limit per episode
-)
-
 REWARD_COMPONENTS = [
     "reward_score",
     "reward_large_score_bonus",
@@ -54,8 +47,8 @@ def collect_episode_metrics(info, episode):
 
     return metrics
 
-# save results of model in action sequences and per episode results
 def evaluate_model(model, env):
+    """save results of model in action sequences and per episode results"""
     episode_results = []
     action_sequences = []
     current_actions = []
@@ -63,7 +56,7 @@ def evaluate_model(model, env):
     obs = env.reset()
 
     while len(episode_results) < NUM_EPISODES:
-        action, _states = model.predict(obs, deterministic=False)
+        action, _states = model.predict(obs, deterministic=True)
         obs, reward, done, info = env.step(action)
 
         current_actions.append(int(action[0]))
@@ -92,8 +85,8 @@ def evaluate_model(model, env):
 
     return episode_results, action_sequences
 
-# combines all results in a unified summary
 def summarize_results(episode_results):
+    """combines all results in a unified summary"""
     scores = [row["score"] for row in episode_results]
     rewards = [row["total_reward"] for row in episode_results]
 
@@ -117,7 +110,6 @@ def summarize_results(episode_results):
 
     return summary
 
-# save to CSV
 def save_csv(path, rows):
     print(os.getcwd())
     if not rows:
@@ -135,8 +127,8 @@ def save_csv(path, rows):
         writer.writeheader()
         writer.writerows(rows)
 
-# printing summary of means and other stats
 def print_summary(summary, action_sequences):
+    """printing summary of means and other stats"""
     print("\n" + "="*40)
     print("=== EVALUATION RESULTS ===")
     print("="*40+"\n")
@@ -162,10 +154,25 @@ def print_summary(summary, action_sequences):
 
     print(f"\nAll action sequences identical: {identical}")
 
-# fully evaluate summary
-def main(render):
+if __name__ == "__main__":
+    # if render is passed in shell args than the game will render
+    render = None
+    if len(sys.argv) > 1 and sys.argv[1] == "render":
+        render = "human"
+
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
+    # registers custom environment MotionProfilePacman from env.py
+    try:
+        register(
+            id=ENV_ID,
+            entry_point="env:MotionProfilePacman",
+            max_episode_steps=10_000, # time limit per episode
+        )
+        print(f"Successfully registered environment: {ENV_ID}")
+    except Exception as e:
+        print(f"Registration bypassed: {e}")
+    
     env = make_vec_env(
         ENV_ID,
         n_envs=1,
@@ -175,16 +182,12 @@ def main(render):
     env = VecFrameStack(env, n_stack=4)
 
     try:
-        # model = PPO.load(MODEL_NAME, env, device=DEVICE)
-        model = DQN.load(MODEL_NAME, env, device=DEVICE)
-
         print(f"Evaluating {MODEL_NAME} over {NUM_EPISODES} episodes...\n")
 
+        model = DQN.load(MODEL_NAME, env, device=DEVICE)
         episode_results, action_sequences = evaluate_model(model, env)
         summary = summarize_results(episode_results)
-
         print_summary(summary, action_sequences)
-
         save_csv(
             os.path.join(OUTPUT_DIR, f"{MODEL_NAME}_episodes.csv"),
             episode_results,
@@ -198,11 +201,3 @@ def main(render):
 
     finally:
         env.close()
-
-if __name__ == "__main__":
-    # if render is passed in shell args than the game will render
-    render = None
-    if len(sys.argv) > 1 and sys.argv[1] == "render":
-        render = "human"
-
-    main(render)
