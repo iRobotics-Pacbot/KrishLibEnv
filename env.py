@@ -170,6 +170,8 @@ class MotionProfilePacman(gym.Env):
         #     self.motion_profile, excluded={"self", "start", "end"}
         # )
 
+        self.distance_lookup_table = self._precompute_bfs_apsp()
+
         self.last_lives = 3
 
     def reset(self, *args, **kwargs) -> Tuple[Any, dict]:
@@ -202,6 +204,15 @@ class MotionProfilePacman(gym.Env):
         self.last_dist_to_pellet = abs(nearest_pellet_pos[0] - self.game.state.pacmanLoc.row) + \
                                    abs(nearest_pellet_pos[1] - self.game.state.pacmanLoc.col)
         return (obs, {})
+
+    def _precompute_bfs_apsp(self):
+        """
+        Precomputes all shortest distance between a pair of positions to use for dist to pellet
+        """
+        lookup = {}
+
+        visited = {}
+        return lookup
 
     def motion_profile(self, start: int, end: int, pos: int) -> float:
         """Receives the start position, end position, and the desired position. Outputs the real time when the bot arrives at that position"""
@@ -278,8 +289,8 @@ class MotionProfilePacman(gym.Env):
 
     def step(self, action: Tuple[int, int]) -> Tuple[Any, float, bool, bool, dict]:
         """
-        old version:action should be a target location in format (row, col)
-        new version:action shoudl be (dist,dir)
+        One high level path planning choice
+        action: scalar from spaces.Discrete(4) [UP, DOWN, LEFT, RIGHT]
         """
         action_dir = [e for e in self.action][int(action)]
         
@@ -301,11 +312,13 @@ class MotionProfilePacman(gym.Env):
         if hit_wall:
             action_dir = self.action.NONE
             self.episode_reward_metrics["wall_hits"] += 1
-        
+
+        # pacman's registered move
+        self.game.step([action_dir])
+
+        # game updates
         for i in range(MOVEMENT_TICK):
             self.game.update()
-        
-        self.game.step([action_dir])
 
         if self.render_mode == "human":
             self.render()
@@ -336,7 +349,6 @@ class MotionProfilePacman(gym.Env):
                 "successful": self.episode_successful,
             }
 
-        # print(observation)
         return observation, reward, done, False, info
 
     def find_nearest_pellet(self, pacman_loc):

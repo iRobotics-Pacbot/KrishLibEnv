@@ -1,6 +1,6 @@
 import os
 from stable_baselines3.common.callbacks import BaseCallback
-from evaluate import OUTPUT_DIR, evaluate_model, summarize_results, print_summary, save_csv
+from evaluate import evaluate_model, summarize_results, print_summary, save_csv
 
 # templated directly from Stable Baselines Documentation
 # See https://stable-baselines3.readthedocs.io/en/master/guide/callbacks.html
@@ -17,5 +17,5 @@ class CustomPacBotCallback(BaseCallback):
             episode_results, action_sequences = evaluate_model(self.model, self.eval_env)
             summary = summarize_results(episode_results)
             print_summary(summary, action_sequences)
-            save_csv(os.path.join(OUTPUT_DIR, f"checkpoint_{self.num_timesteps}_summary.csv"), [summary])
+            save_csv(os.path.join("./eval_logs/", f"checkpoint_{self.num_timesteps}_summary.csv"), [summary])
         return True

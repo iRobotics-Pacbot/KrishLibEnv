@@ -11,7 +11,7 @@ from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.vec_env import VecFrameStack, DummyVecEnv
 
 ENV_ID = "MotionProfilePacman-v1"
-MODEL_NAME = "dqn_pacbot"
+MODEL_NAME = "kalil_pacbot"
 NUM_EPISODES = 100
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 OUTPUT_DIR = os.path.join(SCRIPT_DIR, "bin/results")
@@ -56,7 +56,7 @@ def evaluate_model(model, env):
     obs = env.reset()
 
     while len(episode_results) < NUM_EPISODES:
-        action, _states = model.predict(obs, deterministic=True)
+        action, _states = model.predict(obs, deterministic=False)
         obs, reward, done, info = env.step(action)
 
         current_actions.append(int(action[0]))
